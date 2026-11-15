@@ -2,7 +2,9 @@
 // Loaded as a module (<script type="module">) because it uses `import`.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
-import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
+import {
+  getDatabase, ref, push, query, limitToLast, onChildAdded, onValue,
+} from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
 // Not a secret: this only identifies the project. Access is controlled by the
 // database Rules in the Firebase console.
@@ -52,5 +54,21 @@ window.sendEvent = (item) => {
   push(ref(db, "events"), event)
     .catch((err) => console.error("firebase event failed:", err));
 };
+
+window.myScreamerName = myName; // lets the stats panel mark your own events "(you)"
+
+// ---- Reading: listen for everyone's events, live -----------------------------
+// onChildAdded fires once for each of the last 200 existing events, then again
+// every time anyone (including this laptop) pushes a new one.
+onChildAdded(
+  query(ref(db, "events"), limitToLast(200)),
+  (snapshot) => window.addFeedItem?.(snapshot.val()),
+  (err) => console.error("firebase listen failed:", err),
+);
+
+// ".info/connected" is a special Firebase path: true while we're connected.
+onValue(ref(db, ".info/connected"), (snapshot) => {
+  window.setLiveStatus?.(snapshot.val() === true);
+});
 
 console.log(`firebase ready as ${myName}`);
