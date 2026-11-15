@@ -2,7 +2,7 @@
 // Loaded as a module (<script type="module">) because it uses `import`.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
-import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
+import { getDatabase } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
 // Not a secret: this only identifies the project. Access is controlled by the
 // database Rules in the Firebase console.
@@ -18,9 +18,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-const db = getDatabase(app);
-
-// Test write: proves the app can reach the database.
-set(ref(db, "test"), { hello: "from my laptop", time: Date.now() })
-  .then(() => console.log("wrote to firebase!"))
-  .catch((err) => console.error("firebase write failed:", err));
+export const db = getDatabase(app);
