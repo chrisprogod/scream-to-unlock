@@ -16,6 +16,17 @@ Built at Stupid Ideas Hackathon Ottawa (Nov 15, 2026).
 
 Everything runs offline. No API keys.
 
+## Daily Scream Report
+
+**Live page: https://chrisprogod.github.io/scream-to-unlock/** (source: `docs/index.html`)
+
+A public page with today's stats from every laptop running the app (real screams only, never bots):
+loudest screamer, most stubborn, fastest unlock, the whisperer (quietest fail), rage quits,
+hardest phrase, a loudest-screamers leaderboard, and screams per hour. Days run midnight to
+midnight, Ottawa time. Use the arrows to see previous days. It updates every 15 seconds.
+
+The victory screen also tells you where your scream ranks today.
+
 ## Run it
 
 ```bash

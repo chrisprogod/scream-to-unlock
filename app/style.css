@@ -19,6 +19,7 @@ h1 { position: absolute; top: 90px; left: 17%; margin: 0; font-size: clamp(30px,
 .dev-hint { margin-top: 28px; font-size: 12px; color: #555; }
 .victory { position: fixed; inset: 0; display: none; align-content: center; justify-items: center; gap: clamp(28px, 7vh, 60px); text-align: center; background: white; padding: 28px 8px; overflow-y: auto; font-family: Arial, Helvetica, sans-serif; }
 .victory h2 { font-size: clamp(24px, 5.6vw, 60px); line-height: 1.15; font-weight: 700; margin: 0; }
+.victory-rank { margin: 0; font-family: "Comic Sans MS", "Comic Sans", cursive; font-size: clamp(18px, 2.6vw, 28px); }
 .victory-image { display: block; width: min(35vw, 360px); min-width: 200px; max-width: 90vw; height: auto; }
 body.is-victory .victory { display: grid; }
 body.is-victory .page { visibility: hidden; }

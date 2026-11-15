@@ -277,6 +277,7 @@ function victory() {
   if (recognizer) { recognizer.remove(); recognizer = null; }
   if (phrase) renderPhrase(phrase.words.map(() => true));
   setStatus('');
+  $('victoryRank').textContent = rankLine(Math.round(peak));
   $('victory').setAttribute('aria-hidden', 'false');
   document.body.classList.add('is-victory');
   playFanfare();
@@ -287,6 +288,15 @@ function victory() {
     $('phrase').textContent = '';
     window.lockApi?.unlocked();
   }, CONFIG.victoryMs);
+}
+
+// "91 dB · #2 loudest of 3 screamers today" (real screamers only).
+function rankLine(db) {
+  const r = window.getTodayRank?.(db);
+  if (!r) return `${db} dB`;
+  if (r.total === 1) return `${db} dB · the only real screamer today. #1 by default.`;
+  const suffix = r.best > db ? ` (your best today: ${r.best} dB)` : '';
+  return `${db} dB · #${r.rank} loudest of ${r.total} screamers today${suffix}`;
 }
 
 // ---- Rendering helpers ------------------------------------------------------------

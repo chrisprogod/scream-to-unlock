@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Scream Report</title>
+  <meta name="description" content="Live daily stats from Scream to Unlock: the MacBook lock screen you unlock by screaming.">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: white; color: #111;
+      font-family: "Comic Sans MS", "Comic Sans", cursive;
+      padding: 28px 16px 60px;
+    }
+    .wrap { width: min(100%, 1040px); margin: 0 auto; }
+
+    /* ---- Header ---- */
+    header { text-align: center; margin-bottom: 28px; }
+    h1 { font-size: clamp(34px, 7vw, 64px); margin: 0; transform: rotate(-2deg); line-height: 1.1; }
+    .underline { display: block; width: min(80%, 520px); height: 40px; margin: 4px auto 0; }
+    .underline path { fill: none; stroke: #202020; stroke-width: 12; stroke-linecap: round; }
+    .day-nav { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 10px; font-size: 20px; }
+    .day-nav button {
+      font: inherit; font-size: 18px; background: white; cursor: pointer;
+      border: 3px solid #202020; border-radius: 12px 16px 10px 18px; padding: 2px 12px;
+    }
+    .day-nav button:disabled { opacity: .3; cursor: default; }
+    .status { text-align: center; color: #666; font-size: 14px; margin-top: 8px; }
+    .status .live { color: #e0002a; font-weight: 700; }
+
+    /* ---- Headline numbers ---- */
+    .headline { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 26px; }
+    .num {
+      text-align: center; padding: 14px 10px;
+      border: 4px solid #202020; border-radius: 18px 24px 16px 26px / 24px 16px 26px 18px;
+    }
+    .num:nth-child(odd) { transform: rotate(-1deg); }
+    .num:nth-child(even) { transform: rotate(1deg); }
+    .num b { display: block; font-family: Arial, Helvetica, sans-serif; font-size: clamp(30px, 5vw, 44px); line-height: 1.1; }
+    .num span { font-size: 14px; color: #444; }
+
+    /* ---- Awards ---- */
+    h2 { font-size: 28px; margin: 34px 0 14px; text-decoration: underline wavy; text-underline-offset: 6px; }
+    .awards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+    .award {
+      padding: 16px; border: 4px solid #202020;
+      border-radius: 22px 14px 26px 16px / 14px 26px 16px 22px;
+      display: flex; flex-direction: column; gap: 4px; min-height: 160px;
+    }
+    .award:nth-child(3n+1) { transform: rotate(-.8deg); }
+    .award:nth-child(3n+2) { transform: rotate(.6deg); }
+    .award .emoji { font-size: 34px; line-height: 1; }
+    .award .title { font-size: 18px; font-weight: 700; }
+    .award .value { font-family: Arial, Helvetica, sans-serif; font-size: 32px; font-weight: 700; line-height: 1.15; }
+    .award .who { font-size: 15px; }
+    .award .detail { font-size: 13px; color: #555; font-style: italic; overflow-wrap: anywhere; }
+    .award.empty .value { color: #aaa; font-size: 20px; font-family: inherit; }
+
+    /* ---- Leaderboard + chart ---- */
+    .two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+    ol.board { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+    ol.board li {
+      display: grid; grid-template-columns: 36px 1fr auto; align-items: baseline; gap: 8px;
+      padding: 8px 12px; border: 3px solid #202020; border-radius: 12px 18px 10px 16px;
+      font-size: 17px;
+    }
+    ol.board .rank { font-family: Arial, Helvetica, sans-serif; font-weight: 700; font-size: 20px; }
+    ol.board .db { font-family: Arial, Helvetica, sans-serif; font-weight: 700; }
+    ol.board li:first-child { background: #fff6c2; }
+    .chart { display: flex; align-items: flex-end; gap: 4px; height: 200px; padding: 0 4px; border-bottom: 4px solid #202020; }
+    .bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; }
+    .bar .fill { width: 100%; background: #202020; border-radius: 6px 6px 0 0; min-height: 2px; }
+    .bar .count { font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+    .hours { display: flex; gap: 4px; padding: 0 4px; margin-top: 4px; }
+    .hours span { flex: 1; text-align: center; font-size: 11px; color: #555; min-width: 0; }
+    .muted { color: #888; }
+
+    footer { margin-top: 44px; text-align: center; font-size: 14px; color: #555; }
+    footer a { color: #111; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>daily scream report</h1>
+      <svg class="underline" viewBox="0 0 520 40" preserveAspectRatio="none" aria-hidden="true"><path d="M10 22 C120 8 220 34 330 20 S470 12 510 24" /></svg>
+      <div class="day-nav">
+        <button id="prevDay" aria-label="Previous day">←</button>
+        <span id="dayLabel">today</span>
+        <button id="nextDay" aria-label="Next day">→</button>
+      </div>
+      <div id="status" class="status">loading screams…</div>
+    </header>
+
+    <section class="headline">
+      <div class="num"><b id="nScreamers">–</b><span>people screamed</span></div>
+      <div class="num"><b id="nAttempts">–</b><span>scream attempts</span></div>
+      <div class="num"><b id="nUnlocks">–</b><span>laptops unlocked</span></div>
+      <div class="num"><b id="nRate">–</b><span>unlock rate</span></div>
+      <div class="num"><b id="nTotalDb">–</b><span>total decibels screamed</span></div>
+    </section>
+
+    <h2>today's awards</h2>
+    <section id="awards" class="awards"></section>
+
+    <div class="two-col">
+      <section>
+        <h2>loudest screamers</h2>
+        <ol id="board" class="board"></ol>
+      </section>
+      <section>
+        <h2>screams per hour</h2>
+        <div id="chart" class="chart"></div>
+        <div id="hours" class="hours"></div>
+      </section>
+    </div>
+
+    <footer>
+      Real screams only, from laptops running <a href="https://github.com/chrisprogod/scream-to-unlock">Scream to Unlock</a>:
+      the MacBook lock screen you can only unlock by screaming.<br>
+      Days run midnight to midnight, Ottawa time. Updates every 15 seconds. No audio is ever recorded, just the numbers.
+    </footer>
+  </div>
+
+  <script>
+    // ---- Settings ---------------------------------------------------------------
+    const EVENTS_URL = 'https://scream-to-unlock-default-rtdb.firebaseio.com/events.json' +
+      '?orderBy=%22%24key%22&limitToLast=3000'; // newest 3000 events (push keys sort by time)
+    const REFRESH_MS = 15000;
+    const RAGE_QUIT_AFTER_MS = 10 * 60 * 1000; // started, no unlock for 10 min = rage quit
+    const TZ = 'America/Toronto';              // Ottawa time
+
+    const $ = (id) => document.getElementById(id);
+    const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+    const hourFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' });
+    const dayKey = (t) => dayFmt.format(new Date(t));          // "2026-11-15"
+    const hourOf = (t) => Number(hourFmt.format(new Date(t))) % 24;
+
+    let allEvents = [];
+    let lastLoaded = 0;
+    let selectedDay = new URLSearchParams(location.search).get('date') || dayKey(Date.now());
+
+    // ---- Loading -------------------------------------------------------------------
+    async function load() {
+      try {
+        const res = await fetch(EVENTS_URL, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) || {};
+        allEvents = Object.values(data)
+          .filter((e) => e && typeof e.name === 'string' && ['start', 'fail', 'unlock'].includes(e.type) && !e.bot)
+          .map((e) => ({
+            name: e.name.slice(0, 40),
+            type: e.type,
+            db: typeof e.db === 'number' ? Math.round(e.db) : null,
+            phrase: typeof e.phrase === 'string' ? e.phrase.slice(0, 120) : null,
+            time: Number(e.time) || 0,
+          }))
+          .sort((a, b) => a.time - b.time);
+        lastLoaded = Date.now();
+        render();
+      } catch (err) {
+        console.error(err);
+        $('status').textContent = "couldn't reach the scream database. retrying…";
+      }
+    }
+
+    // ---- Stats -----------------------------------------------------------------------
+    // A session = one person's attempt to unlock: a start, some fails, maybe an unlock.
+    function buildSessions(events) {
+      const open = new Map();
+      const sessions = [];
+      for (const e of events) {
+        let s = open.get(e.name);
+        if (e.type === 'start' || !s) {
+          s = { name: e.name, start: e.type === 'start' ? e.time : null, phrase: e.phrase, fails: [], unlock: null, last: e.time };
+          sessions.push(s);
+          open.set(e.name, s);
+        }
+        s.last = e.time;
+        if (e.type === 'fail') s.fails.push(e);
+        if (e.type === 'unlock') { s.unlock = e; open.delete(e.name); }
+      }
+      return sessions;
+    }
+
+    function computeStats(events, now) {
+      const fails = events.filter((e) => e.type === 'fail');
+      const unlocks = events.filter((e) => e.type === 'unlock');
+      const attempts = fails.length + unlocks.length;
+      const sessions = buildSessions(events);
+
+      const maxBy = (arr, f) => arr.reduce((best, x) => (best == null || f(x) > f(best) ? x : best), null);
+      const minBy = (arr, f) => maxBy(arr, (x) => -f(x));
+
+      const loudest = maxBy(unlocks.filter((e) => e.db != null), (e) => e.db);
+      const whisper = minBy(fails.filter((e) => e.db != null && e.db > 0), (e) => e.db);
+      const stubborn = maxBy(sessions.filter((s) => s.unlock && s.fails.length > 0), (s) => s.fails.length);
+      const fastest = minBy(sessions.filter((s) => s.unlock && s.start != null), (s) => s.unlock.time - s.start);
+      const rageQuits = sessions.filter((s) => !s.unlock && now - s.last > RAGE_QUIT_AFTER_MS).length;
+      const totalDb = [...fails, ...unlocks].reduce((sum, e) => sum + (e.db || 0), 0);
+
+      const failsByPhrase = new Map();
+      for (const e of fails) if (e.phrase) failsByPhrase.set(e.phrase, (failsByPhrase.get(e.phrase) || 0) + 1);
+      const hardest = maxBy([...failsByPhrase.entries()], ([, n]) => n);
+
+      const bestByName = new Map();
+      for (const e of unlocks) if (e.db != null && (!bestByName.has(e.name) || e.db > bestByName.get(e.name).db)) bestByName.set(e.name, e);
+      const board = [...bestByName.values()].sort((a, b) => b.db - a.db).slice(0, 5);
+
+      const perHour = new Array(24).fill(0);
+      for (const e of [...fails, ...unlocks]) perHour[hourOf(e.time)]++;
+
+      return {
+        screamers: new Set(events.map((e) => e.name)).size,
+        attempts, unlocks: unlocks.length,
+        rate: attempts ? Math.round((unlocks.length / attempts) * 100) : null,
+        totalDb, loudest, whisper, stubborn, fastest, rageQuits, hardest, board, perHour,
+      };
+    }
+
+    // ---- Rendering -------------------------------------------------------------------
+    function render() {
+      const now = Date.now();
+      const today = dayKey(now);
+      const events = allEvents.filter((e) => dayKey(e.time) === selectedDay);
+      const s = computeStats(events, now);
+
+      $('dayLabel').textContent = selectedDay === today ? `today · ${prettyDay(selectedDay)}` : prettyDay(selectedDay);
+      $('nextDay').disabled = selectedDay >= today;
+      const ago = Math.round((now - lastLoaded) / 1000);
+      $('status').replaceChildren();
+      if (selectedDay === today) {
+        const live = document.createElement('span');
+        live.className = 'live';
+        live.textContent = '● live';
+        $('status').append(live, ` · updated ${ago < 5 ? 'just now' : `${ago}s ago`}`);
+      } else {
+        $('status').textContent = 'the screams of the past';
+      }
+
+      $('nScreamers').textContent = s.screamers;
+      $('nAttempts').textContent = s.attempts;
+      $('nUnlocks').textContent = s.unlocks;
+      $('nRate').textContent = s.rate == null ? '–' : `${s.rate}%`;
+      $('nTotalDb').textContent = s.totalDb.toLocaleString();
+
+      $('awards').replaceChildren(
+        award('🏆', 'Loudest Screamer of the Day', s.loudest && `${s.loudest.db} dB`, s.loudest?.name, s.loudest?.phrase && `"${s.loudest.phrase}"`),
+        award('🐌', 'Most Stubborn', s.stubborn && `${s.stubborn.fails.length} fails`, s.stubborn?.name, s.stubborn && 'before finally unlocking'),
+        award('⚡', 'Fastest Unlock', s.fastest && duration(s.fastest.unlock.time - s.fastest.start), s.fastest?.name, s.fastest?.unlock.phrase && `"${s.fastest.unlock.phrase}"`),
+        award('🤫', 'The Whisperer', s.whisper && `${s.whisper.db} dB`, s.whisper?.name, s.whisper && 'quietest failed attempt. pathetic.'),
+        award('😤', 'Rage Quits', s.rageQuits ? String(s.rageQuits) : null, null, 'started screaming, never unlocked', '0, everyone persevered'),
+        award('💀', 'Hardest Phrase', s.hardest && `${s.hardest[1]} fails`, null, s.hardest && `"${s.hardest[0]}"`),
+      );
+
+      $('board').replaceChildren(...(s.board.length ? s.board.map((e, i) => {
+        const li = document.createElement('li');
+        const rank = document.createElement('span'); rank.className = 'rank'; rank.textContent = ['🥇', '🥈', '🥉'][i] || `#${i + 1}`;
+        const who = document.createElement('span'); who.textContent = e.name;
+        const db = document.createElement('span'); db.className = 'db'; db.textContent = `${e.db} dB`;
+        li.append(rank, who, db);
+        return li;
+      }) : [emptyLine('nobody has unlocked yet. scream harder.')]));
+
+      renderChart(s.perHour, selectedDay === today ? hourOf(now) : null);
+    }
+
+    function award(emoji, title, value, who, detail, emptyText = 'nobody yet') {
+      const card = document.createElement('div');
+      card.className = 'award' + (value ? '' : ' empty');
+      const parts = [['emoji', emoji], ['title', title], ['value', value || emptyText]];
+      if (value && who) parts.push(['who', who]);
+      if (value && detail) parts.push(['detail', detail]);
+      for (const [cls, text] of parts) {
+        const el = document.createElement('div');
+        el.className = cls;
+        el.textContent = text;
+        card.append(el);
+      }
+      return card;
+    }
+
+    function renderChart(perHour, currentHour) {
+      const active = perHour.map((n, h) => (n ? h : null)).filter((h) => h != null);
+      let from = Math.min(9, ...active);
+      let to = Math.max(currentHour ?? 17, ...active, from + 5);
+      to = Math.min(23, to);
+      const max = Math.max(1, ...perHour.slice(from, to + 1));
+
+      const bars = [], labels = [];
+      for (let h = from; h <= to; h++) {
+        const bar = document.createElement('div'); bar.className = 'bar';
+        const count = document.createElement('div'); count.className = 'count'; count.textContent = perHour[h] || '';
+        const fill = document.createElement('div'); fill.className = 'fill'; fill.style.height = `${(perHour[h] / max) * 85}%`;
+        bar.append(count, fill);
+        bars.push(bar);
+        const label = document.createElement('span');
+        label.textContent = h === 0 ? '12a' : h < 12 ? `${h}a` : h === 12 ? '12p' : `${h - 12}p`;
+        labels.push(label);
+      }
+      $('chart').replaceChildren(...bars);
+      $('hours').replaceChildren(...labels);
+    }
+
+    function emptyLine(text) {
+      const li = document.createElement('li');
+      li.className = 'muted';
+      li.style.display = 'block';
+      li.textContent = text;
+      return li;
+    }
+
+    function duration(ms) {
+      const s = Math.max(0, Math.round(ms / 1000));
+      return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+    }
+
+    function prettyDay(key) {
+      const [y, m, d] = key.split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+
+    function shiftDay(delta) {
+      const [y, m, d] = selectedDay.split('-').map(Number);
+      const next = new Date(y, m - 1, d + delta, 12); // noon avoids DST edge cases
+      selectedDay = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+      const url = new URL(location.href);
+      if (selectedDay === dayKey(Date.now())) url.searchParams.delete('date'); else url.searchParams.set('date', selectedDay);
+      history.replaceState(null, '', url);
+      render();
+    }
+
+    $('prevDay').addEventListener('click', () => shiftDay(-1));
+    $('nextDay').addEventListener('click', () => shiftDay(1));
+
+    load();
+    setInterval(load, REFRESH_MS);
+    setInterval(render, 5000); // keeps "updated Ns ago" fresh
+  </script>
+</body>
+</html>

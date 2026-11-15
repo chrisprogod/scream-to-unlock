@@ -44,8 +44,25 @@
     el.classList.toggle("is-live", connected);
   }
 
+  // Where does a scream of `db` rank among today's REAL screamers (bots don't
+  // count)? Compares your best unlock today against everyone else's best.
+  function getTodayRank(db) {
+    const midnight = new Date().setHours(0, 0, 0, 0);
+    const me = window.myScreamerName;
+    let myBest = db;
+    const othersBest = new Map();
+    for (const it of items) {
+      if (it.bot || it.type !== "unlock" || it.db == null || it.time < midnight) continue;
+      if (it.name === me) myBest = Math.max(myBest, it.db);
+      else othersBest.set(it.name, Math.max(othersBest.get(it.name) ?? 0, it.db));
+    }
+    const others = [...othersBest.values()];
+    return { rank: 1 + others.filter((v) => v > myBest).length, total: others.length + 1, best: myBest };
+  }
+
   window.addFeedItem = addFeedItem;
   window.setLiveStatus = setLiveStatus;
+  window.getTodayRank = getTodayRank;
 
   // ---- Stats -----------------------------------------------------------------
   function computeStats(now) {
