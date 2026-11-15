@@ -6,6 +6,13 @@
 // Unlock when ≥ CONFIG.matchRatio of the phrase's words are heard AND the
 // peak loudness during that utterance beat the target.
 
+// ---- TESTING ------------------------------------------------------------------
+// Set to a number (e.g. 65) to force a fixed, easy loudness target so you can
+// test by talking normally. Same 0–100 scale as the on-screen "dB" number —
+// watch it while you talk to pick a value. Failures won't raise it.
+// Set back to null for the real thing (calibrates to the room).
+const TEST_TARGET = null;
+
 // ---- Tuning knobs -----------------------------------------------------------
 const CONFIG = {
   modelUrl: new URL('model/model.tar.gz', location.href).href,
@@ -193,7 +200,7 @@ async function startLock() {
   if (state !== 'calibrating') return; // force-unlocked mid-calibration
 
   const ambient = median(calibrationSamples);
-  target = clamp(ambient + CONFIG.aboveAmbient, CONFIG.minTarget, CONFIG.maxTarget);
+  target = TEST_TARGET ?? clamp(ambient + CONFIG.aboveAmbient, CONFIG.minTarget, CONFIG.maxTarget);
   console.log(`ambient ${ambient.toFixed(1)} dB → target ${target.toFixed(1)} dB`);
 
   state = 'listening';
@@ -236,7 +243,7 @@ function onHeard(text, isFinal) {
   failures++;
   const tooQuiet = ratio >= CONFIG.matchRatio;
   logShame(heardWords.join(' '), peak, tooQuiet);
-  target = Math.min(CONFIG.hardCap, target + CONFIG.failBump);
+  if (TEST_TARGET == null) target = Math.min(CONFIG.hardCap, target + CONFIG.failBump);
   playSadTrombone();
 
   if (failures % CONFIG.levelUpEvery === 0) {
