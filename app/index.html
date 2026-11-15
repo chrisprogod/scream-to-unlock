@@ -41,6 +41,33 @@
     </div>
   </footer>
 
+  <aside class="live" aria-label="Live scream stats">
+    <div class="live-header">
+      <span class="live-title">Live screams</span>
+      <span id="liveStatus" class="live-status">connecting…</span>
+    </div>
+    <div class="live-stats">
+      <div class="stat stat-hot">
+        <div id="statNow" class="stat-value">0</div>
+        <div class="stat-label">screaming right now</div>
+      </div>
+      <div class="stat">
+        <div id="statUnlocks" class="stat-value">0</div>
+        <div class="stat-label">unlocked today</div>
+      </div>
+      <div class="stat">
+        <div id="statFails" class="stat-value">0</div>
+        <div class="stat-label">failed attempts today</div>
+      </div>
+      <div class="stat">
+        <div id="statLoudest" class="stat-value">--</div>
+        <div id="statLoudestWho" class="stat-label">loudest unlock today</div>
+      </div>
+    </div>
+    <div class="live-feed-title">Feed</div>
+    <ol id="liveFeed" class="live-feed"></ol>
+  </aside>
+
   <div id="victory" class="victory" aria-hidden="true">
     <div class="victory-inner">
       <div class="victory-title">ACCESS<br>GRUDGINGLY<br>GRANTED</div>
@@ -50,6 +77,9 @@
 
   <script src="/vendor/vosk.js"></script>
   <script src="phrases.js"></script>
+  <script src="stats.js"></script>
+  <script src="bots.js"></script>
   <script src="renderer.js"></script>
+  <script type="module" src="firebase.js"></script>
 </body>
 </html>
