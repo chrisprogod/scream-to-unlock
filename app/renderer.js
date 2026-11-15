@@ -23,10 +23,13 @@ const CONFIG = {
   hardCap: 95,         // failure bumps never push the target past this
   failBump: 2,         // each failed attempt raises the target this much
   levelUpEvery: 3,     // every N failures, a longer phrase
-  // A phrase counts as said if EITHER rule passes:
-  matchRatio: 0.7,     // 1) at least 70% of its words were heard, in order, OR
-  tailMinWords: 3,     // 2) its last words were all heard: at least 3 of them…
-  tailFraction: 0.4,   //    …or 40% of the phrase, whichever is more (so long phrases need more)
+  // A phrase counts as said when the heard words are worth at least
+  // `matchScore` of the phrase. Words are weighted by position: the first word
+  // is worth `firstWordWeight`, rising evenly to 1.0 for the last word, so
+  // missing early words is cheap and missing middle/end words is expensive.
+  matchScore: 0.75,
+  firstWordWeight: 0.4,
+  requireLastWord: true, // the last word must always be heard
   failGraceMs: 1500,   // after you stop talking, wait this long before calling it a fail
                        // (Vosk splits a scream into pieces when you pause for breath)
   victoryMs: 3200,     // how long the victory screen shows
@@ -279,24 +282,21 @@ function failAttempt() {
 }
 
 // Decide whether the heard words count as saying the phrase.
-// Matches from the front AND from the back, because the end of a phrase is
-// often heard clearly even when the start got lost.
+// Matches from the front AND from the back (the end of a phrase is often
+// heard clearly when the start got lost) and keeps whichever scores better.
 function matchPhrase(heard, targetWords) {
-  const count = (hits) => hits.filter(Boolean).length;
+  const n = targetWords.length;
+  const weights = targetWords.map((_, i) =>
+    n === 1 ? 1 : CONFIG.firstWordWeight + (1 - CONFIG.firstWordWeight) * (i / (n - 1)));
+  const total = weights.reduce((a, b) => a + b, 0);
+  const score = (hits) => hits.reduce((sum, hit, i) => sum + (hit ? weights[i] : 0), 0) / total;
+
   const forward = matchWords(heard, targetWords);
   const backward = matchWords([...heard].reverse(), [...targetWords].reverse()).reverse();
-  const hits = count(backward) >= count(forward) ? backward : forward;
+  const hits = score(backward) >= score(forward) ? backward : forward;
 
-  // How many words in a row were heard, counting back from the last word?
-  let tail = 0;
-  for (let i = targetWords.length - 1; i >= 0 && backward[i]; i--) tail++;
-  const tailNeeded = Math.min(
-    targetWords.length,
-    Math.max(CONFIG.tailMinWords, Math.ceil(targetWords.length * CONFIG.tailFraction)),
-  );
-
-  const ratio = count(hits) / targetWords.length;
-  return { hits, passes: ratio >= CONFIG.matchRatio || tail >= tailNeeded };
+  const lastOk = !CONFIG.requireLastWord || hits[n - 1];
+  return { hits, score: score(hits), passes: lastOk && score(hits) >= CONFIG.matchScore };
 }
 
 // In-order matching: each heard word claims the next matching target word.
