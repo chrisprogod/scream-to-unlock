@@ -207,6 +207,7 @@ async function startLock() {
   document.body.classList.add('is-listening');
   setInstruction('Scream this to unlock');
   newChallenge();
+  window.sendEvent?.({ type: 'start', phrase: phrase.text });
 }
 
 function newChallenge() {
@@ -243,6 +244,7 @@ function onHeard(text, isFinal) {
   failures++;
   const tooQuiet = ratio >= CONFIG.matchRatio;
   logShame(heardWords.join(' '), peak, tooQuiet);
+  window.sendEvent?.({ type: 'fail', db: Math.round(peak), phrase: phrase.text });
   if (TEST_TARGET == null) target = Math.min(CONFIG.hardCap, target + CONFIG.failBump);
   playSadTrombone();
 
@@ -272,6 +274,7 @@ function matchWords(heard, targetWords) {
 function victory() {
   if (state === 'victory') return;
   state = 'victory';
+  window.sendEvent?.({ type: 'unlock', db: Math.round(peak), phrase: phrase?.text ?? null });
   document.body.classList.remove('is-listening');
   if (recognizer) { recognizer.remove(); recognizer = null; }
   if (phrase) renderPhrase(phrase.words.map(() => true));
