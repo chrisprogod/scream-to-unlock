@@ -3,15 +3,15 @@
 // mic ─┬─► AnalyserNode ──► loudness (fake "dB", 0–100) ──► meter
 //      └─► Vosk recognizer (grammar = the current phrase) ──► words heard
 //
-// Unlock when ≥ CONFIG.matchRatio of the phrase's words are heard AND the
-// peak loudness during that utterance beat the target.
+// Unlock only after a completed utterance contains the sentence and its
+// peak loudness reaches the target. Volume alone never unlocks.
 
 // ---- TESTING ------------------------------------------------------------------
 // Set to a number (e.g. 65) to force a fixed, easy loudness target so you can
 // test by talking normally. Same 0–100 scale as the on-screen "dB" number —
 // watch it while you talk to pick a value. Failures won't raise it.
 // Set back to null for the real thing (calibrates to the room).
-const TEST_TARGET = null;
+const TEST_TARGET = 50;
 
 // ---- Tuning knobs -----------------------------------------------------------
 const CONFIG = {
@@ -23,36 +23,12 @@ const CONFIG = {
   hardCap: 95,         // failure bumps never push the target past this
   failBump: 2,         // each failed attempt raises the target this much
   levelUpEvery: 3,     // every N failures, a longer phrase
-  matchRatio: 0.8,     // fraction of words that must be heard (screaming garbles words)
+  matchRatio: 1,       // every word in the displayed sentence must be recognized
   victoryMs: 3200,     // how long the victory screen shows
 };
 
 const DEV = new URLSearchParams(location.search).has('dev');
 const $ = (id) => document.getElementById(id);
-
-// ---- Roasts -----------------------------------------------------------------
-const TOO_QUIET = [
-  "I heard you. I just don't BELIEVE you.",
-  'Correct words. Pathetic volume.',
-  'Your neighbours can\'t hear you yet.',
-  'Was that a scream or a yawn?',
-  'Say it like you mean it.',
-  'Louder. The pigeons outside need to know.',
-];
-const WRONG_WORDS = [
-  "That's not what I asked you to scream.",
-  'Wrong. Read it again. Slowly. LOUDLY.',
-  'I asked for one thing.',
-  'Impressive volume. Zero reading comprehension.',
-  'Are you even trying?',
-];
-const VICTORY_LINES = [
-  'Your neighbours have been notified.',
-  'A noise complaint has been filed on your behalf.',
-  'Somewhere, a dog is barking back.',
-  'Your throat will remember this.',
-];
-const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
 // ---- State --------------------------------------------------------------------
 let model = null;
@@ -72,14 +48,14 @@ let target = 80;
 let phrase = null;
 let failures = 0;
 let difficulty = 0;
-let shame = [];
 let calibrationSamples = null;
 let ignoreMicUntil = 0; // don't count our own sound effects as screaming
 
 // ---- Startup --------------------------------------------------------------------
 async function init() {
+  phrase = Phrases.generate(0);
+  renderPhrase(phrase.words.map(() => false));
   if (DEV) $('devHint').hidden = false;
-  startClock();
 
   window.lockApi?.onLock(() => { lockRequested = true; if (ready) startLock(); });
   window.lockApi?.onForceUnlock(() => {
@@ -133,7 +109,7 @@ async function startMic() {
   // vosk-browser expects, and it's fine for a hackathon.)
   const proc = audioCtx.createScriptProcessor(4096, 1, 1);
   proc.onaudioprocess = (e) => {
-    if (recognizer && state === 'listening') {
+    if (recognizer && state === 'listening' && performance.now() > ignoreMicUntil) {
       try { recognizer.acceptWaveform(e.inputBuffer); }
       catch (err) { console.error('acceptWaveform failed', err); }
     }
@@ -161,22 +137,49 @@ function tick() {
   requestAnimationFrame(tick);
 }
 
+const PROGRESS_MESSAGES = [
+  'not even close',
+  'eh ur quiet on da creek still',
+  'mmmmm not quite my tempo',
+  'ok its not too bad not good enough',
+  'ahhh almost almost',
+  'YOUR JUS A LIL TOO LOW PLS',
+];
+let messageTimer = null;
+let messageIndex = -1;
+let catStage = 0;
+
+function randomizeMessage() {
+  // Select a different message each time, independent of microphone volume.
+  const offset = 1 + Math.floor(Math.random() * (PROGRESS_MESSAGES.length - 1));
+  messageIndex = messageIndex < 0
+    ? Math.floor(Math.random() * PROGRESS_MESSAGES.length)
+    : (messageIndex + offset) % PROGRESS_MESSAGES.length;
+  $('progress').textContent = PROGRESS_MESSAGES[messageIndex];
+}
+
+function restartMessageCycle() {
+  clearInterval(messageTimer);
+  randomizeMessage();
+  messageTimer = setInterval(() => {
+    if (state === 'listening') randomizeMessage();
+  }, 20000);
+}
+
 function renderMeter() {
-  const fill = $('meterFill');
-  fill.style.width = `${shown}%`;
-  fill.classList.toggle('over', shown >= target);
-  $('meterTarget').style.left = `${target}%`;
   $('levelNow').textContent = Math.round(shown);
   $('levelTarget').textContent = Math.round(target);
   $('levelPeak').textContent = Math.round(peak);
-
-  const face = shown >= target ? '😱' : shown >= target - 12 ? '😮' : shown >= target - 30 ? '😐' : '😴';
-  $('face').textContent = state === 'victory' ? '🥳' : face;
-
-  // Shake the card in proportion to loudness.
-  const s = state === 'listening' ? Math.max(0, shown - (target - 20)) / 4 : 0;
-  document.body.style.setProperty('--shake-x', `${(Math.random() - 0.5) * s}px`);
-  document.body.style.setProperty('--shake-y', `${(Math.random() - 0.5) * s}px`);
+  const percent = clamp(shown / target * 100, 0, 100);
+  $('meterFill').style.width = `${percent}%`;
+  $('meter').setAttribute('aria-valuenow', Math.round(percent));
+  // Discrete poses and tint levels with hysteresis prevent jitter and ghosting.
+  const boundaries = [35, 65, 85];
+  while (catStage < 3 && percent >= boundaries[catStage] + 4) catStage++;
+  while (catStage > 0 && percent < boundaries[catStage - 1] - 4) catStage--;
+  $('cat').setAttribute('data-stage', catStage);
+  $('catGreen').setAttribute('exponent', 1 + catStage);
+  $('catBlue').setAttribute('exponent', 1 + catStage * 1.3);
 }
 
 // ---- Lock flow ----------------------------------------------------------------
@@ -184,17 +187,16 @@ async function startLock() {
   lockRequested = false;
   failures = 0;
   difficulty = 0;
-  shame = [];
-  renderShame();
   setStatus('');
-  $('heard').textContent = '';
   if (audioCtx.state === 'suspended') await audioCtx.resume();
 
   // Measure the room so a noisy hackathon doesn't unlock it for you.
   state = 'calibrating';
-  document.body.classList.remove('is-listening');
+  document.body.classList.remove('is-listening', 'is-victory');
+  $('victory').setAttribute('aria-hidden', 'true');
   setInstruction('Shhh… measuring how quiet you are');
-  $('phrase').textContent = '';
+  phrase = Phrases.generate(difficulty);
+  renderPhrase(phrase.words.map(() => false));
   calibrationSamples = [];
   await sleep(CONFIG.calibrationMs);
   if (state !== 'calibrating') return; // force-unlocked mid-calibration
@@ -206,19 +208,25 @@ async function startLock() {
   state = 'listening';
   document.body.classList.add('is-listening');
   setInstruction('Scream this to unlock');
-  newChallenge();
+  newChallenge(true);
 }
 
-function newChallenge() {
+function newChallenge(keepPhrase = false) {
   if (recognizer) { recognizer.remove(); recognizer = null; }
-  phrase = Phrases.generate(difficulty);
+  if (!keepPhrase) phrase = Phrases.generate(difficulty);
+  restartMessageCycle();
 
   // Restrict Vosk to just this phrase (plus its words, so partial hits still
   // count). "[unk]" soaks up everything else.
   const grammar = JSON.stringify([phrase.text, ...new Set(phrase.words), '[unk]']);
   recognizer = new model.KaldiRecognizer(audioCtx.sampleRate, grammar);
-  recognizer.on('partialresult', (m) => onHeard(m.result.partial, false));
-  recognizer.on('result', (m) => onHeard(m.result.text, true));
+  const activeRecognizer = recognizer;
+  recognizer.on('partialresult', (m) => {
+    if (recognizer === activeRecognizer) onHeard(m.result.partial, false);
+  });
+  recognizer.on('result', (m) => {
+    if (recognizer === activeRecognizer) onHeard(m.result.text, true);
+  });
 
   peak = 0;
   renderPhrase(phrase.words.map(() => false));
@@ -228,33 +236,22 @@ function newChallenge() {
 function onHeard(text, isFinal) {
   if (state !== 'listening' || !phrase) return;
   const heardWords = (text || '').split(/\s+/).filter((w) => w && w !== '[unk]');
-  if (heardWords.length) $('heard').textContent = `I heard: "${heardWords.join(' ')}"`;
 
   const hits = matchWords(heardWords, phrase.words);
   const ratio = hits.filter(Boolean).length / phrase.words.length;
   renderPhrase(hits);
 
-  if (ratio >= CONFIG.matchRatio && peak >= target) return victory();
   if (!isFinal) return;
+  if (ratio >= CONFIG.matchRatio && peak >= target) return victory();
 
   // End of an utterance that didn't unlock.
   if (!heardWords.length) { peak = 0; return; } // just noise, not an attempt
 
   failures++;
-  const tooQuiet = ratio >= CONFIG.matchRatio;
-  logShame(heardWords.join(' '), peak, tooQuiet);
   if (TEST_TARGET == null) target = Math.min(CONFIG.hardCap, target + CONFIG.failBump);
   playSadTrombone();
-
-  if (failures % CONFIG.levelUpEvery === 0) {
-    difficulty++;
-    setStatus(`${tooQuiet ? pick(TOO_QUIET) : pick(WRONG_WORDS)} New phrase. Longer. You did this.`, 'bad');
-    newChallenge();
-  } else {
-    setStatus(tooQuiet ? pick(TOO_QUIET) : pick(WRONG_WORDS), 'bad');
-    peak = 0;
-    setTimeout(() => { if (state === 'listening') renderPhrase(phrase.words.map(() => false)); }, 900);
-  }
+  if (failures % CONFIG.levelUpEvery === 0) difficulty++;
+  newChallenge();
 }
 
 // In-order matching: each heard word claims the next matching target word.
@@ -272,16 +269,16 @@ function matchWords(heard, targetWords) {
 function victory() {
   if (state === 'victory') return;
   state = 'victory';
+  clearInterval(messageTimer);
   document.body.classList.remove('is-listening');
   if (recognizer) { recognizer.remove(); recognizer = null; }
   if (phrase) renderPhrase(phrase.words.map(() => true));
   setStatus('');
-  $('victoryLine').textContent = `${Math.round(peak)} dB. ${pick(VICTORY_LINES)}`;
+  $('victory').setAttribute('aria-hidden', 'false');
   document.body.classList.add('is-victory');
   playFanfare();
 
   setTimeout(() => {
-    document.body.classList.remove('is-victory');
     state = 'idle';
     setInstruction('Unlocked. For now.');
     $('phrase').textContent = '';
@@ -300,23 +297,6 @@ function renderPhrase(hits) {
   }));
 }
 
-function logShame(text, db, tooQuiet) {
-  shame.unshift({ text, db: Math.round(db), tooQuiet });
-  shame = shame.slice(0, 4);
-  renderShame();
-}
-
-function renderShame() {
-  $('shameLog').replaceChildren(...shame.map((s) => {
-    const li = document.createElement('li');
-    li.append(`"${s.text}" — `);
-    const b = document.createElement('b');
-    b.textContent = `${s.db} dB`;
-    li.append(b, s.tooQuiet ? ' — too quiet' : ' — wrong words');
-    return li;
-  }));
-}
-
 function setInstruction(t) { $('instruction').textContent = t; }
 function setStatus(t, kind) { const el = $('status'); el.textContent = t; el.className = 'status' + (kind ? ` ${kind}` : ''); }
 
@@ -324,16 +304,6 @@ function fatal(title, detail) {
   document.body.classList.remove('is-loading');
   setInstruction(title);
   setStatus(detail, 'bad');
-}
-
-function startClock() {
-  const update = () => {
-    const now = new Date();
-    $('time').textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
-    $('date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
-  };
-  update();
-  setInterval(update, 1000);
 }
 
 // ---- Sounds (generated, no audio files needed) ---------------------------------------

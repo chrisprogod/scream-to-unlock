@@ -40,6 +40,7 @@ const MIME = {
   '.wav': 'audio/wav',
   '.mp3': 'audio/mpeg',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.json': 'application/json',
 };
@@ -118,7 +119,7 @@ function createWindow(port) {
     height: 760,
     show: false,
     frame: DEV,
-    backgroundColor: '#07070c',
+    backgroundColor: '#ffffff',
     title: 'Scream to Unlock',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
