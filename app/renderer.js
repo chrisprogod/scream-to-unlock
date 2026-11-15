@@ -32,10 +32,10 @@ const CONFIG = {
   requireLastWord: true, // the last word must always be heard
   failGraceMs: 1500,   // after you stop talking, wait this long before calling it a fail
                        // (Vosk splits a scream into pieces when you pause for breath)
-  victoryMs: 3200,
+  victoryMs: 3200,     // how long the victory screen shows
   sounds: true,        // sound effects on/off
   voice: true,         // spoken roasts (macOS text-to-speech) on/off
-  nagAfterMs: 12000,   // roast you if you haven't screamed for this long     // how long the victory screen shows
+  nagAfterMs: 12000,   // roast you if you haven't screamed for this long
 };
 
 const DEV = new URLSearchParams(location.search).has('dev');
