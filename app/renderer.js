@@ -18,10 +18,10 @@ const CONFIG = {
   modelUrl: new URL('model/model.tar.gz', location.href).href,
   calibrationMs: 2000, // how long to listen to the room before each lock
   aboveAmbient: 25,    // target = room noise + this…
-  minTarget: 70,       // …but never below this
-  maxTarget: 90,       // …or above this (before failure bumps)
-  hardCap: 95,         // failure bumps never push the target past this
-  failBump: 2,         // each failed attempt raises the target this much
+  minTarget: 88,       // …but never below this (≈ a real scream)
+  maxTarget: 92,       // …or above this, so a loud room can't make it impossible
+  hardCap: 94,         // failure bumps never push the target past this (100 = mic maxed out)
+  failBump: 1,         // each failed attempt raises the target this much
   levelUpEvery: 3,     // every N failures, a longer phrase
   // A phrase counts as said when the heard words are worth at least
   // `matchScore` of the phrase. Words are weighted by position: the first word
