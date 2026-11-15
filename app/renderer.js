@@ -11,7 +11,7 @@
 // test by talking normally. Same 0–100 scale as the on-screen "dB" number —
 // watch it while you talk to pick a value. Failures won't raise it.
 // Set back to null for the real thing (calibrates to the room).
-const TEST_TARGET = 50;
+const TEST_TARGET = null;
 
 // ---- Tuning knobs -----------------------------------------------------------
 const CONFIG = {
