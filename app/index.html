@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Scream to Unlock</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="is-loading">
+  <header class="clock">
+    <div id="time" class="clock-time">--:--</div>
+    <div id="date" class="clock-date"></div>
+  </header>
+
+  <main class="card">
+    <div id="face" class="face" aria-hidden="true">😐</div>
+    <div id="instruction" class="instruction">Loading ears…</div>
+
+    <div id="phrase" class="phrase" aria-live="polite"></div>
+
+    <div class="meter" aria-hidden="true">
+      <div id="meterFill" class="meter-fill"></div>
+      <div id="meterTarget" class="meter-target"><span>scream past here</span></div>
+    </div>
+    <div class="readout">
+      <span><b id="levelNow">0</b> dB</span>
+      <span>target <b id="levelTarget">--</b> dB</span>
+      <span>peak <b id="levelPeak">0</b> dB</span>
+    </div>
+
+    <div id="status" class="status"></div>
+    <div id="heard" class="heard"></div>
+  </main>
+
+  <footer class="footer">
+    <div class="shame">
+      <div class="shame-title">Shame log</div>
+      <ol id="shameLog" class="shame-list"></ol>
+    </div>
+    <div id="devHint" class="dev-hint" hidden>
+      dev mode · ⌘⇧⌥U force unlock · ⌘⇧⌥Q quit
+    </div>
+  </footer>
+
+  <div id="victory" class="victory" aria-hidden="true">
+    <div class="victory-inner">
+      <div class="victory-title">ACCESS<br>GRUDGINGLY<br>GRANTED</div>
+      <div id="victoryLine" class="victory-line"></div>
+    </div>
+  </div>
+
+  <script src="/vendor/vosk.js"></script>
+  <script src="phrases.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
