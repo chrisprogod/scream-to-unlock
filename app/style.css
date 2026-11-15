@@ -54,3 +54,38 @@ body.is-victory .page { visibility: hidden; }
 @media (max-width: 760px) {
   .confused-still { position: static; display: block; width: 110px; margin: 20px 0 0 auto; }
 }
+
+/* ---- Live stats panel (right side, matches the hand-drawn look) ---- */
+.live { display: none; }
+@media (min-width: 1000px) {
+  body { padding-right: 300px; }
+  .live {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 300px;
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 24px 20px; overflow: hidden;
+    background: white; border-left: 4px solid #202020;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+  }
+}
+.live-header { display: flex; justify-content: space-between; align-items: baseline; }
+.live-title { font-size: 22px; font-weight: 700; transform: rotate(-2deg); }
+.live-status { font-size: 13px; color: #777; }
+.live-status.is-live { color: #e0002a; font-weight: 700; animation: live-blink 1.6s ease-in-out infinite; }
+@keyframes live-blink { 50% { opacity: .35; } }
+
+.live-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat { padding: 10px; border: 3px solid #202020; border-radius: 14px 18px 12px 20px / 18px 12px 20px 14px; }
+.stat:nth-child(even) { transform: rotate(1deg); }
+.stat:nth-child(odd) { transform: rotate(-1deg); }
+.stat-value { font-family: Arial, Helvetica, sans-serif; font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 12px; color: #444; margin-top: 4px; line-height: 1.25; }
+.stat-hot .stat-value { color: #e0002a; }
+
+.live-feed-title { font-size: 16px; font-weight: 700; text-decoration: underline wavy; }
+.live-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 13px; line-height: 1.35; text-align: left; }
+.feed-item { position: relative; padding-right: 54px; animation: feed-in .3s ease-out; }
+.feed-fail { color: #666; }
+.feed-unlock b { color: #0a8a3a; }
+.feed-phrase { font-style: italic; color: #555; font-size: 12px; margin-top: 2px; }
+.feed-time { position: absolute; right: 0; top: 0; font-size: 11px; color: #888; }
+@keyframes feed-in { from { opacity: 0; transform: translateY(-6px); } }
