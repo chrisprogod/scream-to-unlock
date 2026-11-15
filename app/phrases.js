@@ -5,25 +5,36 @@
 // After editing these lists, run:  npm run check-phrases
 
 (function (root) {
+  // Gen Z slang + software engineering memes. Words the 2020 speech model does
+  // NOT know (can never be recognized): rizz, delulu, skibidi, gyatt, ratioed,
+  // bussin, leetcode, npm, gpt, frontend. Write "lowkey" as "low key".
   const SUBJECTS = [
-    'my toaster', 'the fridge', 'my cat', 'grandma', 'the printer',
-    'my laptop', 'a goose', 'the moon', 'my landlord', 'the microwave',
-    'my dentist', 'a pigeon', 'this computer', 'my left sock', 'a scuba diver',
+    'my code', 'the intern', 'the senior dev', 'the compiler', 'my linkedin',
+    'the recruiter', 'my startup', 'the server', 'the database', 'copilot',
+    'claude', 'my git history', 'the product manager', 'my side project',
+    'the wifi', 'stack overflow', 'my laptop',
+    'my toaster', 'grandma', 'a goose', // classics
   ];
 
   const PREDICATES = [
-    'is judging me', 'owes me money', 'ate my homework', 'knows what i did',
-    'wants a raise', 'is watching me', 'smells like soup', 'has a secret',
-    'stole my socks', 'thinks i am weird', 'is a spy', 'hates mondays',
-    'is my best friend', 'filed a complaint',
+    'works on my machine', 'pushed to prod on a friday', 'has a skill issue',
+    'needs to touch grass', 'is vibe coding', 'deleted the database',
+    'is low key cooked', 'has negative aura', 'is aura farming',
+    'is a beige flag', 'is a canon event', 'is giving main character',
+    'is in its villain era', 'is my roman empire', 'ate and left no crumbs',
+    'is so mid', 'is kind of sus', 'is very demure', 'keeps glazing my code',
+    'has a merge conflict', 'crashed in production', 'wrote zero tests',
+    'thinks tabs beat spaces', 'forgot a semicolon', 'skipped the standup',
+    'got hit by layoffs', 'is the backend now',
   ];
 
   const TAILS = [
-    'and i am scared', 'at three in the morning', 'again', 'for no reason',
-    'on a tuesday', 'and nobody cares', 'in my dreams', 'and it is my fault',
+    'no cap', 'for real', 'six seven', 'respectfully', 'on god',
+    'in this economy', 'send help', 'it is so over', 'we are so back',
+    'and i am crying', 'and it is giving brain rot', 'before the deadline',
   ];
 
-  const OPENERS = ['please believe me', 'i swear', 'help', 'listen to me'];
+  const OPENERS = ['bro', 'chat', 'not gonna lie', 'low key', 'be so for real', 'okay so', 'pov'];
 
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
