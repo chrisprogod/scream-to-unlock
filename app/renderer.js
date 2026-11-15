@@ -18,7 +18,7 @@ const CONFIG = {
   modelUrl: new URL('model/model.tar.gz', location.href).href,
   calibrationMs: 2000, // how long to listen to the room before each lock
   aboveAmbient: 25,    // target = room noise + this…
-  minTarget: 88,       // …but never below this (≈ a real scream)
+  minTarget: 90,       // …but never below this (≈ a real scream)
   maxTarget: 92,       // …or above this, so a loud room can't make it impossible
   hardCap: 94,         // failure bumps never push the target past this (100 = mic maxed out)
   failBump: 1,         // each failed attempt raises the target this much
