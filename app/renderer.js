@@ -528,8 +528,9 @@ function say(text) {
   const u = new SpeechSynthesisUtterance(text);
   const voices = speechSynthesis.getVoices();
   u.voice = voices.find((v) => v.name === 'Fred') || voices.find((v) => v.lang === 'en-US') || null;
-  u.rate = 1.05;
-  quietMic(800 + text.length * 90); // estimate, in case 'end' never fires
+  u.rate = 0.85;   // a bit slower than normal (1 = normal speed)
+  u.volume = 1;    // maximum (text-to-speech can't go louder than your Mac's volume)
+  quietMic(800 + (text.length * 90) / u.rate); // estimate, in case 'end' never fires
   u.onend = () => { ignoreMicUntil = Math.min(ignoreMicUntil, performance.now() + 300); };
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
