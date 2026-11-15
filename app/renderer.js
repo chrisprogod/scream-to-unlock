@@ -23,7 +23,12 @@ const CONFIG = {
   hardCap: 95,         // failure bumps never push the target past this
   failBump: 2,         // each failed attempt raises the target this much
   levelUpEvery: 3,     // every N failures, a longer phrase
-  matchRatio: 1,       // every word in the displayed sentence must be recognized
+  // A phrase counts as said if EITHER rule passes:
+  matchRatio: 0.7,     // 1) at least 70% of its words were heard, in order, OR
+  tailMinWords: 3,     // 2) its last words were all heard: at least 3 of them…
+  tailFraction: 0.4,   //    …or 40% of the phrase, whichever is more (so long phrases need more)
+  failGraceMs: 1500,   // after you stop talking, wait this long before calling it a fail
+                       // (Vosk splits a scream into pieces when you pause for breath)
   victoryMs: 3200,     // how long the victory screen shows
 };
 
@@ -47,6 +52,8 @@ let peak = 0;     // loudest moment of the current utterance
 let target = 80;
 let phrase = null;
 let failures = 0;
+let heardSoFar = []; // words from earlier pieces of the current attempt
+let failTimer = null;
 let difficulty = 0;
 let calibrationSamples = null;
 let ignoreMicUntil = 0; // don't count our own sound effects as screaming
@@ -196,7 +203,8 @@ async function startLock() {
   $('victory').setAttribute('aria-hidden', 'true');
   setInstruction('Shhh… measuring how quiet you are');
   phrase = Phrases.generate(difficulty);
-  renderPhrase(phrase.words.map(() => false));
+  // Don't show the phrase yet: words screamed during calibration aren't heard.
+  $('phrase').textContent = 'get ready…';
   calibrationSamples = [];
   await sleep(CONFIG.calibrationMs);
   if (state !== 'calibrating') return; // force-unlocked mid-calibration
@@ -215,6 +223,9 @@ async function startLock() {
 function newChallenge(keepPhrase = false) {
   if (recognizer) { recognizer.remove(); recognizer = null; }
   if (!keepPhrase) phrase = Phrases.generate(difficulty);
+  heardSoFar = [];
+  clearTimeout(failTimer);
+  failTimer = null;
   restartMessageCycle();
 
   // Restrict Vosk to just this phrase (plus its words, so partial hits still
@@ -236,24 +247,56 @@ function newChallenge(keepPhrase = false) {
 
 function onHeard(text, isFinal) {
   if (state !== 'listening' || !phrase) return;
-  const heardWords = (text || '').split(/\s+/).filter((w) => w && w !== '[unk]');
+  const words = (text || '').split(/\s+/).filter((w) => w && w !== '[unk]');
 
-  const hits = matchWords(heardWords, phrase.words);
-  const ratio = hits.filter(Boolean).length / phrase.words.length;
-  renderPhrase(hits);
+  // Still talking? Then it's not over yet: cancel any pending fail.
+  if (words.length) { clearTimeout(failTimer); failTimer = null; }
 
-  if (!isFinal) return;
-  if (ratio >= CONFIG.matchRatio && peak >= target) return victory();
+  // Judge EVERYTHING heard in this attempt, not just the latest piece, so the
+  // first words still count after a pause.
+  const combined = [...heardSoFar, ...words];
+  const result = matchPhrase(combined, phrase.words);
+  renderPhrase(result.hits);
 
-  // End of an utterance that didn't unlock.
-  if (!heardWords.length) { peak = 0; return; } // just noise, not an attempt
+  if (result.passes && peak >= target) return victory();
+  if (!isFinal || !words.length) return;
 
+  // A piece of speech ended without unlocking. Remember it, and give the rest
+  // of the phrase a moment to arrive before calling it a fail.
+  heardSoFar = combined.slice(-40);
+  failTimer = setTimeout(failAttempt, CONFIG.failGraceMs);
+}
+
+function failAttempt() {
+  failTimer = null;
+  if (state !== 'listening') return;
   failures++;
   window.sendEvent?.({ type: 'fail', db: Math.round(peak), phrase: phrase.text }); // before newChallenge() swaps the phrase
   if (TEST_TARGET == null) target = Math.min(CONFIG.hardCap, target + CONFIG.failBump);
   playSadTrombone();
   if (failures % CONFIG.levelUpEvery === 0) difficulty++;
   newChallenge();
+}
+
+// Decide whether the heard words count as saying the phrase.
+// Matches from the front AND from the back, because the end of a phrase is
+// often heard clearly even when the start got lost.
+function matchPhrase(heard, targetWords) {
+  const count = (hits) => hits.filter(Boolean).length;
+  const forward = matchWords(heard, targetWords);
+  const backward = matchWords([...heard].reverse(), [...targetWords].reverse()).reverse();
+  const hits = count(backward) >= count(forward) ? backward : forward;
+
+  // How many words in a row were heard, counting back from the last word?
+  let tail = 0;
+  for (let i = targetWords.length - 1; i >= 0 && backward[i]; i--) tail++;
+  const tailNeeded = Math.min(
+    targetWords.length,
+    Math.max(CONFIG.tailMinWords, Math.ceil(targetWords.length * CONFIG.tailFraction)),
+  );
+
+  const ratio = count(hits) / targetWords.length;
+  return { hits, passes: ratio >= CONFIG.matchRatio || tail >= tailNeeded };
 }
 
 // In-order matching: each heard word claims the next matching target word.
