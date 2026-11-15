@@ -1,4 +1,4 @@
-// Scream to Unlock — Electron main process.
+// ScreamLock — Electron main process.
 // Creates the full-screen "lock screen", serves the app over a tiny local
 // HTTP server (vosk-browser needs real http:// URLs for its worker), and
 // wires up the global hotkeys.
@@ -188,7 +188,7 @@ function createWindow(port) {
     // separate full-screen Space that other apps can switch away from.
     simpleFullscreen: !DEV,
     backgroundColor: '#ffffff',
-    title: 'Scream to Unlock',
+    title: 'ScreamLock',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -251,7 +251,7 @@ app.whenReady().then(async () => {
   ipcMain.on('renderer-ready', () => { if (locked) win.webContents.send('lock'); });
   ipcMain.on('unlocked', unlock);
 
-  console.log(`\nScream to Unlock running${DEV ? ' (dev mode)' : ''} on http://127.0.0.1:${port}`);
+  console.log(`\nScreamLock running${DEV ? ' (dev mode)' : ''} on http://127.0.0.1:${port}`);
   console.log('  Cmd+Shift+Option+Q  quit (escape hatch)');
   console.log('  Cmd+Shift+Option+L  lock now');
   console.log('  Cmd+Shift+Option+U  force unlock (demo plan B)\n');

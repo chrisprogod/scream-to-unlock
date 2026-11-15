@@ -1,4 +1,4 @@
-// Scream to Unlock — lock screen logic.
+// ScreamLock — lock screen logic.
 //
 // mic ─┬─► AnalyserNode ──► loudness (fake "dB", 0–100) ──► meter
 //      └─► Vosk recognizer (grammar = the current phrase) ──► words heard
