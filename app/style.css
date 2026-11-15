@@ -1,0 +1,149 @@
+/* Scream to Unlock — lock screen styles. Tweak the tokens first. */
+:root {
+  --bg-1: #07070c;
+  --bg-2: #1a0f2e;
+  --text: #f4f1ff;
+  --muted: #9a94b8;
+  --card: rgba(255, 255, 255, 0.06);
+  --card-border: rgba(255, 255, 255, 0.12);
+  --meter-bg: rgba(255, 255, 255, 0.08);
+  --quiet: #5b8cff;
+  --loud: #ff3d6e;
+  --win: #39ff9f;
+  --word-hit: #39ff9f;
+  --radius: 22px;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font);
+  color: var(--text);
+  background: radial-gradient(ellipse at 50% 0%, var(--bg-2), var(--bg-1) 70%);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: center;
+  justify-items: center;
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+  transition: background 0.2s;
+}
+
+/* Screen shakes harder the louder you are (--shake set from JS). */
+body.is-listening main { transform: translate(var(--shake-x, 0), var(--shake-y, 0)); }
+
+/* ---- Clock ---- */
+.clock { text-align: center; padding-top: 6vh; }
+.clock-time { font-size: clamp(64px, 11vw, 140px); font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+.clock-date { font-size: 22px; color: var(--muted); margin-top: 8px; font-weight: 500; }
+
+/* ---- Card ---- */
+.card {
+  width: min(760px, 92vw);
+  padding: 32px 36px 28px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(20px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.face { font-size: 64px; line-height: 1; transition: transform 0.08s; }
+.instruction { font-size: 15px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+
+.phrase {
+  font-size: clamp(26px, 4vw, 44px);
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+  min-height: 1.2em;
+}
+.phrase .word { display: inline-block; margin: 0 0.18em; transition: color 0.15s, transform 0.15s; }
+.phrase .word.hit { color: var(--word-hit); transform: scale(1.08); text-shadow: 0 0 18px rgba(57, 255, 159, 0.6); }
+
+/* ---- Meter ---- */
+.meter {
+  position: relative;
+  width: 100%;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--meter-bg);
+  overflow: hidden;
+  margin-top: 6px;
+}
+.meter-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--quiet), var(--loud));
+  transition: width 0.05s linear;
+}
+.meter-fill.over { background: var(--win); box-shadow: 0 0 24px var(--win); }
+.meter-target {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 80%;
+  width: 3px;
+  background: var(--text);
+}
+.meter-target span {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  color: var(--text);
+  opacity: 0.8;
+}
+
+.readout { display: flex; gap: 22px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.readout b { color: var(--text); }
+
+.status { font-size: 20px; font-weight: 700; min-height: 1.4em; }
+.status.bad { color: var(--loud); }
+.status.good { color: var(--win); }
+.heard { font-size: 13px; color: var(--muted); min-height: 1.2em; font-style: italic; }
+
+/* ---- Footer / shame log ---- */
+.footer { width: min(760px, 92vw); padding-bottom: 4vh; align-self: end; }
+.shame-title { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.shame-list { list-style: none; font-size: 13px; color: var(--muted); display: grid; gap: 3px; min-height: 4.8em; }
+.shame-list li b { color: var(--loud); }
+.dev-hint { margin-top: 10px; font-size: 11px; color: var(--muted); opacity: 0.6; }
+
+/* ---- Loading ---- */
+body.is-loading .phrase,
+body.is-loading .meter,
+body.is-loading .readout { opacity: 0.25; }
+body.is-loading .face { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(0.9); opacity: 0.6; } }
+
+/* ---- Victory ---- */
+.victory {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--win);
+  color: #04120b;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+body.is-victory .victory { opacity: 1; animation: flash 0.25s steps(2) 4; }
+.victory-inner { text-align: center; }
+.victory-title { font-size: clamp(48px, 9vw, 120px); font-weight: 900; line-height: 0.95; letter-spacing: -0.02em; }
+.victory-line { margin-top: 24px; font-size: 22px; font-weight: 700; }
+@keyframes flash { 50% { background: #ffffff; } }

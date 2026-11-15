@@ -1,0 +1,16 @@
+{
+  "name": "scream-to-unlock",
+  "version": "1.0.0",
+  "description": "A MacBook lock screen you can only unlock by screaming a random phrase.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "check-phrases": "node scripts/check-phrases.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "electron": "45.3.2",
+    "vosk-browser": "0.0.8"
+  }
+}
