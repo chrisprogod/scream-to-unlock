@@ -30,6 +30,7 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 let win = null;
 let locked = false;
 let quitting = false;
+let allowQuit = false; // only the escape hatch may quit while locked
 
 // ---- Local static server ---------------------------------------------------
 const MIME = {
@@ -148,8 +149,14 @@ function createWindow(port) {
 
 // ---- App lifecycle ---------------------------------------------------------
 app.whenReady().then(async () => {
-  // Without a menu, Cmd+Q / Cmd+W / Cmd+H do nothing. Dev keeps it for DevTools.
-  if (!DEV) Menu.setApplicationMenu(null);
+  // Real mode: a menu with NO Quit/Close/Hide items, so Cmd+Q / Cmd+W / Cmd+H
+  // aren't bound to anything. (A null menu still let Cmd+Q through on macOS.)
+  // Dev keeps the default menu for DevTools.
+  if (!DEV) {
+    Menu.setApplicationMenu(Menu.buildFromTemplate([
+      { label: app.name, submenu: [{ label: 'Scream to unlock. There is no quit.', enabled: false }] },
+    ]));
+  }
 
   const ses = session.defaultSession;
   ses.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'media'));
@@ -163,7 +170,7 @@ app.whenReady().then(async () => {
   const port = await startServer();
   createWindow(port);
 
-  globalShortcut.register(KEYS.quit, () => { quitting = true; app.quit(); });
+  globalShortcut.register(KEYS.quit, () => { allowQuit = true; app.quit(); });
   globalShortcut.register(KEYS.lock, lock);
   globalShortcut.register(KEYS.forceUnlock, () => win && win.webContents.send('force-unlock'));
 
@@ -180,6 +187,15 @@ app.whenReady().then(async () => {
   console.log('  Cmd+Shift+Option+U  force unlock (demo plan B)\n');
 });
 
-app.on('before-quit', () => { quitting = true; });
+// Every way of quitting (Cmd+Q, Dock → Quit, app.quit()) ends up here.
+// While locked in real mode, refuse unless it came from the escape hatch.
+app.on('before-quit', (e) => {
+  if (!DEV && locked && !allowQuit) {
+    e.preventDefault();
+    console.log('Quit blocked: you have to scream (or press Cmd+Shift+Option+Q).');
+    return;
+  }
+  quitting = true;
+});
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => { /* stay alive in the background */ });
