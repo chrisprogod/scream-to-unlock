@@ -8,7 +8,7 @@
   const SUBJECTS = [
     'my toaster', 'the fridge', 'my cat', 'grandma', 'the printer',
     'my laptop', 'a goose', 'the moon', 'my landlord', 'the microwave',
-    'my dentist', 'a pigeon', 'this computer', 'my left sock',
+    'my dentist', 'a pigeon', 'this computer', 'my left sock','scubaaaa'
   ];
 
   const PREDICATES = [
