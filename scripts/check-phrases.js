@@ -10,7 +10,7 @@ const vocab = new Set(
   fs.readFileSync(path.join(__dirname, 'vocab.txt'), 'utf8').split('\n')
 );
 
-const words = Phrases.allWords();
+const words = Phrases.allSpokenWords(); // what the recognizer listens for
 const missing = words.filter((w) => !vocab.has(w));
 
 if (missing.length) {
@@ -22,4 +22,7 @@ if (missing.length) {
 
 console.log(`✓ All ${words.length} phrase words are in the model's vocabulary.`);
 console.log('Samples:');
-for (let d = 0; d <= 3; d++) console.log(`  difficulty ${d}: "${Phrases.generate(d).text}"`);
+for (let d = 0; d <= 3; d++) {
+  const p = Phrases.generate(d);
+  console.log(`  difficulty ${d}: "${p.text}"` + (p.spokenText !== p.text ? `\n                listens for: "${p.spokenText}"` : ''));
+}

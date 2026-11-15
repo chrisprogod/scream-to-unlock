@@ -233,7 +233,9 @@ function newChallenge(keepPhrase = false) {
 
   // Restrict Vosk to just this phrase (plus its words, so partial hits still
   // count). "[unk]" soaks up everything else.
-  const grammar = JSON.stringify([phrase.text, ...new Set(phrase.words), '[unk]']);
+  // Listen for the SPOKEN form (slang like "rizz" is swapped for a sound-alike
+  // the model knows, e.g. "riz"; see SOUNDS_LIKE in phrases.js).
+  const grammar = JSON.stringify([phrase.spokenText, ...new Set(phrase.spokenWords), '[unk]']);
   recognizer = new model.KaldiRecognizer(audioCtx.sampleRate, grammar);
   const activeRecognizer = recognizer;
   recognizer.on('partialresult', (m) => {
@@ -250,7 +252,8 @@ function newChallenge(keepPhrase = false) {
 
 function onHeard(text, isFinal) {
   if (state !== 'listening' || !phrase) return;
-  const words = (text || '').split(/\s+/).filter((w) => w && w !== '[unk]');
+  // Translate sound-alikes back to the words on screen ("riz" → "rizz").
+  const words = Phrases.toDisplay((text || '').split(/\s+/).filter((w) => w && w !== '[unk]'), phrase.words);
 
   // Still talking? Then it's not over yet: cancel any pending fail.
   if (words.length) { clearTimeout(failTimer); failTimer = null; }
