@@ -32,7 +32,10 @@ const CONFIG = {
   requireLastWord: true, // the last word must always be heard
   failGraceMs: 1500,   // after you stop talking, wait this long before calling it a fail
                        // (Vosk splits a scream into pieces when you pause for breath)
-  victoryMs: 3200,     // how long the victory screen shows
+  victoryMs: 3200,
+  sounds: true,        // sound effects on/off
+  voice: true,         // spoken roasts (macOS text-to-speech) on/off
+  nagAfterMs: 12000,   // roast you if you haven't screamed for this long     // how long the victory screen shows
 };
 
 const DEV = new URLSearchParams(location.search).has('dev');
@@ -60,6 +63,12 @@ let failTimer = null;
 let difficulty = 0;
 let calibrationSamples = null;
 let ignoreMicUntil = 0; // don't count our own sound effects as screaming
+let lastHitCount = 0;    // words lit up so far (for the pop sound)
+let segmentPeak = 0;     // loudest moment of the current stretch of speech
+let wordPeak = 0;        // loudest stretch of speech that contained phrase words
+let attemptDb = 0;       // the loudness that counted for this attempt (for stats)
+let wasOverTarget = false;
+let lastActivityAt = 0;  // last time you made noise or said a word (for nagging)
 
 // ---- Startup --------------------------------------------------------------------
 async function init() {
@@ -141,7 +150,14 @@ function tick() {
   shown = level > shown ? level : shown * 0.9 + level * 0.1; // fast attack, slow release
 
   if (state === 'calibrating') calibrationSamples.push(level);
-  if (state === 'listening' && performance.now() > ignoreMicUntil) peak = Math.max(peak, level);
+  if (state === 'listening' && performance.now() > ignoreMicUntil) {
+    peak = Math.max(peak, level);
+    segmentPeak = Math.max(segmentPeak, level);
+    if (level > target - 25) lastActivityAt = performance.now();
+    const over = shown >= target;
+    if (over && !wasOverTarget) playDing(); // you just got loud enough
+    wasOverTarget = over;
+  }
 
   renderMeter();
   requestAnimationFrame(tick);
@@ -246,7 +262,12 @@ function newChallenge(keepPhrase = false) {
   });
 
   peak = 0;
+  lastHitCount = 0;
+  segmentPeak = 0;
+  wordPeak = 0;
+  lastActivityAt = performance.now();
   renderPhrase(phrase.words.map(() => false));
+  playBoom(); // new phrase!
   if (DEV) console.log('phrase:', phrase.text);
 }
 
@@ -263,23 +284,43 @@ function onHeard(text, isFinal) {
   const combined = [...heardSoFar, ...words];
   const result = matchPhrase(combined, phrase.words);
   renderPhrase(result.hits);
+  const hitCount = result.hits.filter(Boolean).length;
+  if (hitCount > lastHitCount) playPop(hitCount); // a word just lit up
+  lastHitCount = hitCount;
+  if (words.length) lastActivityAt = performance.now();
 
-  if (result.passes && peak >= target) return victory();
-  if (!isFinal || !words.length) return;
+  // Loudness only counts while phrase words are being said: the loudest
+  // stretch of speech that contained words. Screaming with no words (e.g.
+  // after saying the phrase quietly) doesn't help.
+  attemptDb = Math.max(wordPeak, words.length ? segmentPeak : 0);
+  if (result.passes && attemptDb >= target) return victory();
+  if (!isFinal) return;
 
-  // A piece of speech ended without unlocking. Remember it, and give the rest
-  // of the phrase a moment to arrive before calling it a fail.
+  // A stretch of speech just ended.
+  if (words.length) wordPeak = Math.max(wordPeak, segmentPeak);
+  segmentPeak = 0;
+  if (!words.length) return; // just noise, not an attempt
+
   heardSoFar = combined.slice(-40);
-  failTimer = setTimeout(failAttempt, CONFIG.failGraceMs);
+
+  // Said the phrase, but not loud enough: that's an attempt, and it failed.
+  if (result.passes) return failAttempt('quiet');
+
+  // Not enough of the phrase yet. Give the rest a moment to arrive (you may
+  // have paused for breath) before calling it a fail.
+  failTimer = setTimeout(() => failAttempt('words'), CONFIG.failGraceMs);
 }
 
-function failAttempt() {
+function failAttempt(reason = 'words') {
+  clearTimeout(failTimer);
   failTimer = null;
   if (state !== 'listening') return;
   failures++;
-  window.sendEvent?.({ type: 'fail', db: Math.round(peak), phrase: phrase.text }); // before newChallenge() swaps the phrase
+  attemptDb = Math.max(wordPeak, segmentPeak);
+  window.sendEvent?.({ type: 'fail', db: Math.round(attemptDb), phrase: phrase.text }); // before newChallenge() swaps the phrase
   if (TEST_TARGET == null) target = Math.min(CONFIG.hardCap, target + CONFIG.failBump);
   playSadTrombone();
+  setTimeout(() => say(pick(reason === 'quiet' ? TOO_QUIET_LINES : FAIL_LINES)), 1900);
   if (failures % CONFIG.levelUpEvery === 0) difficulty++;
   newChallenge();
 }
@@ -317,16 +358,18 @@ function matchWords(heard, targetWords) {
 function victory() {
   if (state === 'victory') return;
   state = 'victory';
-  window.sendEvent?.({ type: 'unlock', db: Math.round(peak), phrase: phrase?.text ?? null });
+  window.sendEvent?.({ type: 'unlock', db: Math.round(attemptDb || peak), phrase: phrase?.text ?? null });
   clearInterval(messageTimer);
   document.body.classList.remove('is-listening');
   if (recognizer) { recognizer.remove(); recognizer = null; }
   if (phrase) renderPhrase(phrase.words.map(() => true));
   setStatus('');
-  $('victoryRank').textContent = rankLine(Math.round(peak));
+  $('victoryRank').textContent = rankLine(Math.round(attemptDb || peak));
   $('victory').setAttribute('aria-hidden', 'false');
   document.body.classList.add('is-victory');
-  playFanfare();
+  playAirhorn();
+  setTimeout(playFanfare, 1100);
+  setTimeout(() => say(pick(WIN_LINES)), 300);
 
   setTimeout(() => {
     state = 'idle';
@@ -366,18 +409,106 @@ function fatal(title, detail) {
 }
 
 // ---- Sounds (generated, no audio files needed) ---------------------------------------
+const FAIL_LINES = [
+  'skill issue', 'bro is cooked', 'L rizz', 'negative aura', 'that was not bussin',
+  'chat, is this real?', 'that was mid', 'six seven', 'unc behavior', 'erm, what the sigma',
+];
+const TOO_QUIET_LINES = [
+  'I heard you. I just do not believe you', 'right words, zero aura', 'louder, unc',
+  'was that a scream or a whisper?', 'say it like you mean it, bro', 'the rizz is there, the volume is not',
+];
+const WIN_LINES = [
+  'W rizz', 'plus one thousand aura', 'you ate', 'no cap, that was bussin',
+  'sigma behavior', 'the rizzler has arrived',
+];
+const NAG_LINES = [
+  'chat, is this guy gonna scream?', 'hello? anybody home?', 'bro is mewing instead of screaming',
+  'I can hear you breathing', 'scream or touch grass', 'any day now, unc',
+];
+
+// Stop listening to the mic for a while, so our own sounds and voice don't
+// count as screaming or as words.
+function quietMic(ms) {
+  ignoreMicUntil = Math.max(ignoreMicUntil, performance.now() + ms);
+}
+
 function tone(freq, start, dur, type = 'square', gain = 0.12, slideTo = null) {
+  if (!CONFIG.sounds) return;
   const t0 = audioCtx.currentTime + start;
   const osc = audioCtx.createOscillator();
   const g = audioCtx.createGain();
   osc.type = type;
   osc.frequency.setValueAtTime(freq, t0);
-  if (slideTo) osc.frequency.linearRampToValueAtTime(slideTo, t0 + dur);
+  if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
   g.gain.setValueAtTime(gain, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   osc.connect(g).connect(audioCtx.destination);
   osc.start(t0);
   osc.stop(t0 + dur + 0.05);
+}
+
+// A note that holds steady, then cuts off (for the air horn).
+function held(freq, start, dur, type, gain) {
+  if (!CONFIG.sounds) return;
+  const t0 = audioCtx.currentTime + start;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0 + 0.02);
+  g.gain.setValueAtTime(gain, t0 + dur - 0.04);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.05);
+}
+
+// A burst of filtered noise (the "thwack" in the boom).
+function noise(start, dur, gain, cutoff) {
+  if (!CONFIG.sounds) return;
+  const t0 = audioCtx.currentTime + start;
+  const buffer = audioCtx.createBuffer(1, Math.ceil(audioCtx.sampleRate * dur), audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = cutoff;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(gain, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(filter).connect(g).connect(audioCtx.destination);
+  src.start(t0);
+}
+
+// Deep dramatic boom: a new phrase appears.
+function playBoom() {
+  quietMic(700);
+  tone(160, 0, 1.0, 'sine', 0.7, 35);
+  tone(80, 0, 1.0, 'triangle', 0.4, 30);
+  noise(0, 0.3, 0.3, 500);
+}
+
+// Rising pop: a word just lit up green (gets higher with every word).
+// Doesn't mute the mic: you're mid-scream.
+function playPop(n) {
+  tone(480 + n * 60, 0, 0.1, 'sine', 0.2, 720 + n * 60);
+}
+
+// Bright ding: you just got loud enough.
+function playDing() {
+  tone(1568, 0, 0.5, 'sine', 0.12);
+  tone(2349, 0.04, 0.4, 'sine', 0.06);
+}
+
+// Air horn: BWAA BWAA BWAAAAA.
+function playAirhorn() {
+  quietMic(2000);
+  for (const [start, dur] of [[0, 0.16], [0.22, 0.16], [0.44, 0.7]]) {
+    for (const f of [466, 471, 699]) held(f, start, dur, 'sawtooth', 0.06);
+  }
 }
 
 function playFanfare() {
@@ -386,13 +517,36 @@ function playFanfare() {
 }
 
 function playSadTrombone() {
-  ignoreMicUntil = performance.now() + 2200;
+  quietMic(2200);
   [392, 370, 349].forEach((f, i) => tone(f, i * 0.32, 0.3, 'sawtooth', 0.08));
   tone(330, 0.96, 0.9, 'sawtooth', 0.08, 300);
 }
 
+// Spoken roast via macOS text-to-speech. The mic is muted while it talks.
+function say(text) {
+  if (!CONFIG.voice || !('speechSynthesis' in window)) return;
+  const u = new SpeechSynthesisUtterance(text);
+  const voices = speechSynthesis.getVoices();
+  u.voice = voices.find((v) => v.name === 'Fred') || voices.find((v) => v.lang === 'en-US') || null;
+  u.rate = 1.05;
+  quietMic(800 + text.length * 90); // estimate, in case 'end' never fires
+  u.onend = () => { ignoreMicUntil = Math.min(ignoreMicUntil, performance.now() + 300); };
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+// Haven't screamed in a while? Get roasted.
+setInterval(() => {
+  if (state !== 'listening' || performance.now() < ignoreMicUntil) return;
+  if (performance.now() - lastActivityAt > CONFIG.nagAfterMs) {
+    lastActivityAt = performance.now();
+    say(pick(NAG_LINES));
+  }
+}, 1000);
+
 // ---- Utils --------------------------------------------------------------------
 function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 function median(arr) {
   if (!arr.length) return 40;
