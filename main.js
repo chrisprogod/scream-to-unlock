@@ -5,7 +5,7 @@
 
 const {
   app, BrowserWindow, globalShortcut, ipcMain, powerMonitor,
-  session, systemPreferences, Menu,
+  session, systemPreferences, Menu, screen,
 } = require('electron');
 const http = require('http');
 const fs = require('fs');
@@ -79,14 +79,74 @@ function startServer() {
   });
 }
 
+// ---- Keeping the lock in front ------------------------------------------------
+// The real blocker is the window itself: simple fullscreen + screen-saver level
+// + visible on all Spaces keeps it covering the screen even if another app
+// (e.g. a browser) becomes the front app. Newer macOS versions don't let apps
+// steal keyboard focus, so focus requests here may be ignored; the watchdog
+// still keeps the window shown and on top.
+let watchdog = null;
+
+function grabFront() {
+  if (DEV || !locked || !win) return;
+  if (!win.isVisible()) win.show();
+  if (!win.isFocused()) {
+    app.focus({ steal: true });
+    win.focus();
+    win.moveTop();
+  }
+}
+
+function startWatchdog() {
+  clearInterval(watchdog);
+  watchdog = setInterval(grabFront, 250);
+}
+
+function stopWatchdog() {
+  clearInterval(watchdog);
+  watchdog = null;
+}
+
+// Extra monitors get a plain blocker window, so they can't be used either.
+let blockers = [];
+
+function showBlockers() {
+  hideBlockers();
+  const mainDisplay = screen.getDisplayMatching(win.getBounds());
+  for (const display of screen.getAllDisplays()) {
+    if (display.id === mainDisplay.id) continue;
+    const blocker = new BrowserWindow({
+      ...display.bounds,
+      frame: false, show: false, focusable: false, hasShadow: false,
+      skipTaskbar: true, enableLargerThanScreen: true, backgroundColor: '#ffffff',
+    });
+    blocker.setAlwaysOnTop(true, 'screen-saver');
+    blocker.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    blocker.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(
+      '<body style="margin:0;height:100vh;display:grid;place-items:center;font:700 48px Comic Sans MS,cursive">' +
+      'nice try. go scream at the other screen.</body>'));
+    blocker.once('ready-to-show', () => blocker.showInactive());
+    blockers.push(blocker);
+  }
+}
+
+function hideBlockers() {
+  for (const blocker of blockers) if (!blocker.isDestroyed()) blocker.destroy();
+  blockers = [];
+}
+
 // ---- Lock / unlock ---------------------------------------------------------
 function lock() {
   if (!win) return;
   locked = true;
   if (!DEV) {
+    // Show on every desktop/Space, so switching desktops doesn't escape it.
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     win.show();
     win.setKiosk(true); // hides Dock + menu bar, blocks Cmd+Tab and Force Quit
     win.setAlwaysOnTop(true, 'screen-saver');
+    showBlockers();
+    startWatchdog();
   } else {
     win.show();
   }
@@ -100,13 +160,17 @@ function unlock() {
     setTimeout(lock, 2500); // keep iterating on the design
     return;
   }
+  stopWatchdog();
+  hideBlockers();
   win.setAlwaysOnTop(false);
+  win.setVisibleOnAllWorkspaces(false);
   if (win.isKiosk()) {
     // Wait for macOS to finish leaving full screen before hiding, or it glitches.
     let hidden = false;
     const hide = () => { if (!hidden && !locked) { hidden = true; win.hide(); } };
+    const simple = win.isSimpleFullScreen();
     win.once('leave-full-screen', hide);
-    setTimeout(hide, 1500);
+    setTimeout(hide, simple ? 200 : 1500);
     win.setKiosk(false);
   } else {
     win.hide();
@@ -120,6 +184,9 @@ function createWindow(port) {
     height: 760,
     show: false,
     frame: DEV,
+    // Real mode: cover the screen on the CURRENT desktop instead of moving to a
+    // separate full-screen Space that other apps can switch away from.
+    simpleFullscreen: !DEV,
     backgroundColor: '#ffffff',
     title: 'Scream to Unlock',
     webPreferences: {
@@ -137,6 +204,9 @@ function createWindow(port) {
     const msg = e.message ?? e;
     if (typeof msg === 'string' && !msg.includes('Electron Security Warning')) console.log('[page]', msg);
   });
+
+  // Something else took focus while locked? Take it back immediately.
+  win.on('blur', () => setTimeout(grabFront, 30));
 
   // Start locked: cover the screen as soon as there's something to show.
   win.once('ready-to-show', lock);
