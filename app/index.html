@@ -2,44 +2,49 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Scream to Unlock</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What did u say??</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="is-loading">
-  <header class="clock">
-    <div id="time" class="clock-time">--:--</div>
-    <div id="date" class="clock-date"></div>
-  </header>
-
-  <main class="card">
-    <div id="face" class="face" aria-hidden="true">😐</div>
-    <div id="instruction" class="instruction">Loading ears…</div>
-
-    <div id="phrase" class="phrase" aria-live="polite"></div>
-
-    <div class="meter" aria-hidden="true">
-      <div id="meterFill" class="meter-fill"></div>
-      <div id="meterTarget" class="meter-target"><span>scream past here</span></div>
-    </div>
-    <div class="readout">
-      <span><b id="levelNow">0</b> dB</span>
-      <span>target <b id="levelTarget">--</b> dB</span>
-      <span>peak <b id="levelPeak">0</b> dB</span>
-    </div>
-
-    <div id="status" class="status"></div>
-    <div id="heard" class="heard"></div>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+    <filter id="catTint" color-interpolation-filters="sRGB"><feComponentTransfer>
+      <feFuncR type="gamma" exponent="0.8"/>
+      <feFuncG id="catGreen" type="gamma" exponent="1"/>
+      <feFuncB id="catBlue" type="gamma" exponent="1"/>
+    </feComponentTransfer></filter>
+  </defs></svg>
+  <main class="page">
+    <header class="header">
+      <h1>what did u say??</h1>
+      <div id="cat" class="cat" role="img" aria-label="Cat reacting to your volume">
+        <div class="cat-frame cat-quiet"><img src="assets/cat-reference.png" alt=""></div>
+        <div class="cat-frame cat-loud"><img src="assets/cat-reference.png" alt=""></div>
+      </div>
+      <svg class="underline" viewBox="0 0 460 110" aria-hidden="true">
+        <path d="M15 18 C100 13 156 47 235 55 S360 58 402 52 Q430 48 445 51 M140 80 C200 76 247 84 304 104" />
+      </svg>
+    </header>
+    <section class="challenge" aria-label="Say the sentence out loud">
+      <div id="phrase" class="phrase" aria-live="polite"></div>
+      <div id="progress" class="progress" aria-live="polite">not even close</div>
+      <div id="meter" class="meter" role="progressbar" aria-label="Volume toward target" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="meter-window"><div id="meterFill" class="meter-fill"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
+        <svg viewBox="0 0 460 90" preserveAspectRatio="none" aria-hidden="true"><path d="M8 12 Q180 4 450 8 L447 78 Q230 88 14 82 Z M16 18 Q220 12 443 15 L440 72 Q220 79 21 75 Z" /></svg>
+      </div>
+      <img class="confused-still" src="assets/confused-still.png" alt="Confused reaction with question marks">
+      <div class="details">
+        <div id="instruction" class="instruction" role="status">Loading ears…</div>
+        <div class="readout">
+          <span>current <b id="levelNow">0</b> dB</span>
+          <span>target <b id="levelTarget">--</b> dB</span>
+          <span>highest <b id="levelPeak">0</b> dB</span>
+        </div>
+        <div id="status" class="status" role="status"></div>
+      </div>
+    </section>
+    <div id="devHint" class="dev-hint" hidden>dev mode · ⌘⇧⌥U force unlock · ⌘⇧⌥Q quit</div>
   </main>
-
-  <footer class="footer">
-    <div class="shame">
-      <div class="shame-title">Shame log</div>
-      <ol id="shameLog" class="shame-list"></ol>
-    </div>
-    <div id="devHint" class="dev-hint" hidden>
-      dev mode · ⌘⇧⌥U force unlock · ⌘⇧⌥Q quit
-    </div>
-  </footer>
 
   <aside class="live" aria-label="Live scream stats">
     <div class="live-header">
@@ -68,13 +73,10 @@
     <ol id="liveFeed" class="live-feed"></ol>
   </aside>
 
-  <div id="victory" class="victory" aria-hidden="true">
-    <div class="victory-inner">
-      <div class="victory-title">ACCESS<br>GRUDGINGLY<br>GRANTED</div>
-      <div id="victoryLine" class="victory-line"></div>
-    </div>
-  </div>
-
+  <section id="victory" class="victory" aria-hidden="true">
+    <h2>u did it! u said uh something stupid</h2>
+    <img class="victory-image" src="assets/victory.jpg" alt="SpongeBob and Patrick with exhausted, bloodshot eyes">
+  </section>
   <script src="/vendor/vosk.js"></script>
   <script src="phrases.js"></script>
   <script src="stats.js"></script>
